@@ -1,5 +1,7 @@
 ﻿# F.R.I.D.A.Y. — Voice AI Assistant
 
+![Python](https://img.shields.io/badge/python-3.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![LiveKit](https://img.shields.io/badge/voice-LiveKit-red)
+
 Tony Stark-inspired voice AI assistant powered by LiveKit, Deepgram, Gemini, and FastMCP. Includes a custom Ultron-style command dashboard.
 
 ## Architecture
@@ -10,7 +12,7 @@ Tony Stark-inspired voice AI assistant powered by LiveKit, Deepgram, Gemini, and
 - **Voice Pipeline:** LiveKit Agents
 - **Dashboard:** Custom HTML/Canvas Ultron-style command interface
 
-## Setup
+## Project Structure ## Setup
 
 ### 1. Install dependencies
 ```bash
@@ -28,18 +30,16 @@ cp .env.example .env
 ### 3. Run the agent
 ```bash
 # Terminal 1 - MCP Tool Server
-uv run friday
+uv run python src/server.py
 
 # Terminal 2 - Voice Agent
-uv run python agent_friday_new.py
+uv run python src/agent_friday_new.py
 ```
 
 ### 4. Launch the dashboard
-Generate a connection token:
 ```bash
-uv run python gen_token.py
+uv run python src/gen_token.py
 ```
-
 Open `friday-dashboard.html` in your browser, paste the LiveKit URL and generated token, and click **Establish Uplink**.
 
 ## Required API Keys
@@ -48,9 +48,6 @@ Open `friday-dashboard.html` in your browser, paste the LiveKit URL and generate
 - `DEEPGRAM_API_KEY` — console.deepgram.com
 - `GROQ_API_KEY` — console.groq.com
 
-## Screenshot
-![FRIDAY Dashboard](dashboard-screenshot.png)
-
 ## Dashboard Features
 - Real-time audio-reactive core animation (particle sphere + rotating rings)
 - Live mic/voice level meters
@@ -58,6 +55,5 @@ Open `friday-dashboard.html` in your browser, paste the LiveKit URL and generate
 - System status panel (uplink, agent presence, neural load)
 - Text chat fallback alongside voice
 
-## Connect
-Run `uv run python gen_token.py`, then open the dashboard and paste in your credentials — or use LiveKit Playground directly.
-
+## License
+MIT — see [LICENSE](LICENSE)
