@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F.R.I.D.A.Y. — Command Interface</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/livekit-client/2.5.9/livekit-client.umd.min.js"></script>
+<style>
+  :root {
+    --crimson: #e01a2b;
+    --crimson-dim: #8a0f1a;
+    --crimson-glow: rgba(224, 26, 43, 0.55);
+    --ember: #ff5c4d;
+    --bg: #050507;
+    --panel: rgba(16, 8, 10, 0.82);
+    --line: rgba(224, 26, 43, 0.28);
+    --text: #f2d9d9;
+    --text-dim: #8a6b6e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ------- Background grid + vignette ------- */
+  .bg-grid {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(224,26,43,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(224,26,43,0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+    animation: gridDrift 24s linear infinite;
+    z-index: 0;
+  }
+  @keyframes gridDrift { from { background-position: 0 0; } to { background-position: 48px 48px; } }
+
+  .vignette {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.85) 100%);
+    pointer-events: none; z-index: 1;
+  }
+
+  .scanline {
+    position: fixed; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--crimson-glow), transparent);
+    animation: scan 7s linear infinite;
+    z-index: 2; pointer-events: none; opacity: 0.5;
+  }
+  @keyframes scan { from { top: -2px; } to { top: 100vh; } }
+
+  /* ------- Layout ------- */
+  .layout {
+    position: relative; z-index: 3;
+    display: grid;
+    grid-template-columns: 300px 1fr 320px;
+    grid-template-rows: 64px 1fr 84px;
+    height: 100vh;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  /* ------- Header ------- */
+  header {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+    backdrop-filter: blur(8px);
+  }
+  .logo {
+    font-size: 20px; font-weight: 700; letter-spacing: 8px;
+    color: var(--crimson);
+    text-shadow: 0 0 18px var(--crimson-glow);
+    animation: flicker 6s infinite;
+  }
+  @keyframes flicker {
+    0%, 92%, 96%, 100% { opacity: 1; }
+    93%, 95% { opacity: 0.55; }
+  }
+  .logo small { font-size: 9px; letter-spacing: 3px; color: var(--text-dim); display: block; margin-top: 2px; }
+
+  .clock-block { text-align: right; }
+  #clock { font-size: 24px; font-weight: 300; letter-spacing: 3px; color: var(--ember); font-variant-numeric: tabular-nums; }
+  #date { font-size: 10px; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase; }
+
+  /* ------- Panels ------- */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    backdrop-filter: blur(8px);
+    padding: 18px;
+    display: flex; flex-direction: column;
+    min-height: 0;
+  }
+  .panel-title {
+    font-size: 10px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--crimson); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title::before {
+    content: ''; width: 8px; height: 8px; background: var(--crimson);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ------- Status panel (left) ------- */
+  .status-item {
+    padding: 12px 0; border-bottom: 1px solid rgba(224,26,43,0.12);
+  }
+  .status-item:last-child { border-bottom: none; }
+  .status-name { font-size: 10px; letter-spacing: 2px; color: var(--text-dim); text-transform: uppercase; }
+  .status-value {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; margin-top: 5px; letter-spacing: 1px;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #444; transition: all 0.4s;
+  }
+  .dot.on {
+    background: var(--crimson);
+    box-shadow: 0 0 10px var(--crimson-glow), 0 0 22px var(--crimson-glow);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  .bars { display: flex; gap: 3px; margin-top: 8px; height: 22px; align-items: flex-end; }
+  .bars span {
+    flex: 1; background: var(--crimson-dim);
+    height: 20%; transition: height 0.15s;
+  }
+  .bars.active span { background: var(--crimson); box-shadow: 0 0 6px var(--crimson-glow); }
+
+  .sys-metric { margin-top: 12px; }
+  .meter { height: 4px; background: rgba(224,26,43,0.12); margin-top: 6px; position: relative; overflow: hidden; }
+  .meter > div {
+    position: absolute; inset: 0 auto 0 0;
+    background: linear-gradient(90deg, var(--crimson-dim), var(--crimson));
+    box-shadow: 0 0 8px var(--crimson-glow);
+    transition: width 1.2s ease;
+  }
+
+  /* ------- Core (center) ------- */
+  .core-zone {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 0;
+  }
+  #coreCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .core-caption {
+    position: absolute; bottom: 18px; left: 0; right: 0;
+    text-align: center; font-size: 11px; letter-spacing: 5px;
+    color: var(--text-dim); text-transform: uppercase;
+  }
+  #agentState {
+    color: var(--ember); text-shadow: 0 0 12px var(--crimson-glow);
+    font-weight: 600;
+  }
+
+  /* ------- Transcript (right) ------- */
+  #transcript {
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+    scrollbar-width: thin; scrollbar-color: var(--crimson-dim) transparent;
+    padding-right: 4px;
+  }
+  .msg { max-width: 92%; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; animation: msgIn 0.3s ease; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .msg.user {
+    align-self: flex-end;
+    background: rgba(224,26,43,0.14);
+    border: 1px solid var(--line);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  }
+  .msg.friday {
+    align-self: flex-start;
+    background: rgba(255,92,77,0.08);
+    border: 1px solid rgba(255,92,77,0.25);
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  }
+  .msg .who { font-size: 9px; letter-spacing: 2px; color: var(--crimson); display: block; margin-bottom: 4px; text-transform: uppercase; }
+
+  /* ------- Footer / controls ------- */
+  footer {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+    padding: 0 18px;
+    backdrop-filter: blur(8px);
+  }
+
+  .btn {
+    background: transparent; border: 1px solid var(--crimson);
+    color: var(--crimson); font-family: inherit;
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    padding: 12px 20px; cursor: pointer;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    transition: all 0.25s; white-space: nowrap;
+  }
+  .btn:hover { background: rgba(224,26,43,0.15); box-shadow: 0 0 18px var(--crimson-glow); }
+  .btn.armed { background: var(--crimson); color: #fff; box-shadow: 0 0 24px var(--crimson-glow); }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  #textInput {
+    flex: 1; background: rgba(224,26,43,0.06);
+    border: 1px solid var(--line); color: var(--text);
+    font-family: inherit; font-size: 13px; letter-spacing: 1px;
+    padding: 12px 16px; outline: none;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+  #textInput::placeholder { color: var(--text-dim); }
+  #textInput:focus { border-color: var(--crimson); box-shadow: 0 0 14px rgba(224,26,43,0.2) inset; }
+
+  /* ------- Connect modal ------- */
+  .modal {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(5,5,7,0.92);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px);
+  }
+  .modal.hidden { display: none; }
+  .modal-box {
+    width: min(480px, 92vw);
+    background: var(--panel); border: 1px solid var(--crimson);
+    clip-path: polygon(22px 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%, 0 22px);
+    padding: 34px;
+    box-shadow: 0 0 60px rgba(224,26,43,0.25);
+  }
+  .modal-box h2 {
+    font-size: 15px; letter-spacing: 6px; color: var(--crimson);
+    text-transform: uppercase; margin-bottom: 6px;
+    text-shadow: 0 0 14px var(--crimson-glow);
+  }
+  .modal-box p { font-size: 11px; color: var(--text-dim); margin-bottom: 22px; letter-spacing: 1px; line-height: 1.6; }
+  .field { margin-bottom: 16px; }
+  .field label { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 6px; }
+  .field input {
+    width: 100%; background: rgba(224,26,43,0.06);
+    border: 1px solid var(--line); color: var(--text);
+    font-family: inherit; font-size: 12px; padding: 11px 14px; outline: none;
+  }
+  .field input:focus { border-color: var(--crimson); }
+  .modal-box .btn { width: 100%; margin-top: 8px; padding: 14px; }
+  .hint { font-size: 10px; color: var(--text-dim); margin-top: 14px; line-height: 1.6; }
+  .hint a { color: var(--ember); }
+  #connErr { color: var(--ember); font-size: 11px; margin-top: 10px; display: none; }
+
+  /* Boot overlay */
+  #boot {
+    position: fixed; inset: 0; z-index: 60;
+    background: var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; transition: opacity 0.8s;
+  }
+  #boot.gone { opacity: 0; pointer-events: none; }
+  .boot-ring {
+    width: 90px; height: 90px; border-radius: 50%;
+    border: 2px solid transparent; border-top-color: var(--crimson);
+    animation: spin 0.9s linear infinite;
+    box-shadow: 0 0 30px rgba(224,26,43,0.2);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #bootText { font-size: 11px; letter-spacing: 5px; color: var(--crimson); text-transform: uppercase; }
+
+  @media (max-width: 1000px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: 64px 220px 1fr 260px 84px; }
+    .core-zone { min-height: 200px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bg-grid, .scanline, .logo, .dot.on, .panel-title::before, .boot-ring { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="vignette"></div>
+<div class="scanline"></div>
+
+<!-- BOOT -->
+<div id="boot">
+  <div class="boot-ring"></div>
+  <div id="bootText">INITIALIZING F.R.I.D.A.Y.</div>
+</div>
+
+<!-- CONNECT MODAL -->
+<div class="modal" id="connectModal">
+  <div class="modal-box">
+    <h2>Uplink Required</h2>
+    <p>Connect this interface to your LiveKit room. FRIDAY's agent must be running (uv run friday + agent).</p>
+    <div class="field">
+      <label>LiveKit URL</label>
+      <input id="lkUrl" placeholder="wss://your-project.livekit.cloud" />
+    </div>
+    <div class="field">
+      <label>Access Token</label>
+      <input id="lkToken" placeholder="paste room token here" />
+    </div>
+    <button class="btn" id="connectBtn">Establish Uplink</button>
+    <div id="connErr"></div>
+    <div class="hint">
+      Token kaise banaye: LiveKit dashboard &rarr; apna project &rarr; Settings &rarr; "Generate token" (ya Sandbox &rarr; Token server). Room name kuch bhi rakho, identity: "boss".
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">F.R.I.D.A.Y.<small>FULLY RESPONSIVE INTELLIGENT DIGITAL ASSISTANT</small></div>
+    <div class="clock-block">
+      <div id="clock">00:00:00</div>
+      <div id="date">—</div>
+    </div>
+  </header>
+
+  <!-- LEFT: STATUS -->
+  <section class="panel">
+    <div class="panel-title">System Status</div>
+
+    <div class="status-item">
+      <div class="status-name">Uplink</div>
+      <div class="status-value"><span class="dot" id="dotConn"></span><span id="connState">OFFLINE</span></div>
+    </div>
+
+    <div class="status-item">
+      <div class="status-name">Agent</div>
+      <div class="status-value"><span class="dot" id="dotAgent"></span><span id="agentPresence">NOT DETECTED</span></div>
+    </div>
+
+    <div class="status-item">
+      <div class="status-name">Microphone</div>
+      <div class="status-value"><span class="dot" id="dotMic"></span><span id="micState">MUTED</span></div>
+      <div class="bars" id="micBars">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <div class="status-item">
+      <div class="status-name">FRIDAY Voice</div>
+      <div class="status-value"><span class="dot" id="dotVoice"></span><span id="voiceState">IDLE</span></div>
+      <div class="bars" id="voiceBars">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <div class="sys-metric">
+      <div class="status-name">Session Time</div>
+      <div class="status-value" id="sessionTime" style="font-variant-numeric: tabular-nums;">00:00</div>
+    </div>
+
+    <div class="sys-metric">
+      <div class="status-name">Neural Load</div>
+      <div class="meter"><div id="loadBar" style="width:8%"></div></div>
+    </div>
+  </section>
+
+  <!-- CENTER: CORE -->
+  <section class="core-zone panel" style="padding:0; overflow:hidden;">
+    <canvas id="coreCanvas"></canvas>
+    <div class="core-caption">STATUS: <span id="agentState">STANDBY</span></div>
+  </section>
+
+  <!-- RIGHT: TRANSCRIPT -->
+  <section class="panel">
+    <div class="panel-title">Comms Log</div>
+    <div id="transcript">
+      <div class="msg friday"><span class="who">FRIDAY</span>Interface online. Establish uplink to begin, boss.</div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <button class="btn" id="micBtn" disabled>Mic: Off</button>
+    <input id="textInput" placeholder="Type a command to FRIDAY..." disabled />
+    <button class="btn" id="sendBtn" disabled>Send</button>
+    <button class="btn" id="disconnectBtn" disabled>Kill Link</button>
+  </footer>
+
+</div>
+
+<script>
+/* ================= BOOT ================= */
+const bootMsgs = ["INITIALIZING F.R.I.D.A.Y.", "LOADING NEURAL CORE", "CALIBRATING SENSORS", "SYSTEMS NOMINAL"];
+let bi = 0;
+const bootInt = setInterval(() => {
+  bi++;
+  if (bi < bootMsgs.length) document.getElementById('bootText').textContent = bootMsgs[bi];
+  else { clearInterval(bootInt); document.getElementById('boot').classList.add('gone'); }
+}, 650);
+
+/* ================= CLOCK ================= */
+function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent = n.toTimeString().slice(0, 8);
+  document.getElementById('date').textContent = n.toDateString().toUpperCase();
+}
+tick(); setInterval(tick, 1000);
+
+/* ================= CORE ANIMATION ================= */
+const canvas = document.getElementById('coreCanvas');
+const ctx = canvas.getContext('2d');
+let W, H, CX, CY;
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  W = canvas.width = r.width; H = canvas.height = r.height;
+  CX = W / 2; CY = H / 2;
+}
+resize(); window.addEventListener('resize', resize);
+
+// particles on sphere
+const P = [];
+for (let i = 0; i < 220; i++) {
+  const theta = Math.random() * Math.PI * 2;
+  const phi = Math.acos(2 * Math.random() - 1);
+  P.push({ theta, phi, speed: 0.002 + Math.random() * 0.004, size: 0.6 + Math.random() * 1.6 });
+}
+
+let energy = 0;        // 0..1 — driven by who's talking
+let targetEnergy = 0;
+let t = 0;
+
+function draw() {
+  t += 0.008;
+  energy += (targetEnergy - energy) * 0.06;
+  const R = Math.min(W, H) * 0.22 * (1 + energy * 0.18);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // outer rotating rings
+  for (let ring = 0; ring < 3; ring++) {
+    const rr = R * (1.35 + ring * 0.28);
+    const rot = t * (ring % 2 === 0 ? 1 : -1) * (0.5 + ring * 0.3);
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(rot);
+    ctx.beginPath();
+    const gap = 0.5 + ring * 0.3;
+    ctx.arc(0, 0, rr, gap, Math.PI - gap);
+    ctx.arc(0, 0, rr, Math.PI + gap, Math.PI * 2 - gap);
+    ctx.strokeStyle = `rgba(224,26,43,${0.35 - ring * 0.08 + energy * 0.3})`;
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    // ring ticks
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (rr - 4), Math.sin(a) * (rr - 4));
+      ctx.lineTo(Math.cos(a) * (rr + 4), Math.sin(a) * (rr + 4));
+      ctx.strokeStyle = `rgba(255,92,77,${0.18 + energy * 0.3})`;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // core glow
+  const g = ctx.createRadialGradient(CX, CY, 0, CX, CY, R * 1.15);
+  g.addColorStop(0, `rgba(255,92,77,${0.55 + energy * 0.4})`);
+  g.addColorStop(0.4, `rgba(224,26,43,${0.28 + energy * 0.3})`);
+  g.addColorStop(1, 'transparent');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(CX, CY, R * 1.15, 0, Math.PI * 2); ctx.fill();
+
+  // inner core
+  ctx.beginPath();
+  ctx.arc(CX, CY, R * 0.32 * (1 + Math.sin(t * 4) * 0.05 + energy * 0.2), 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255,180,170,${0.75 + energy * 0.25})`;
+  ctx.shadowColor = '#e01a2b'; ctx.shadowBlur = 40 + energy * 50;
+  ctx.fill(); ctx.shadowBlur = 0;
+
+  // particle sphere
+  P.forEach(p => {
+    p.theta += p.speed * (1 + energy * 3);
+    const x3 = Math.sin(p.phi) * Math.cos(p.theta);
+    const y3 = Math.sin(p.phi) * Math.sin(p.theta);
+    const z3 = Math.cos(p.phi);
+    // rotate around Y
+    const rx = x3 * Math.cos(t) - z3 * Math.sin(t);
+    const rz = x3 * Math.sin(t) + z3 * Math.cos(t);
+    const scale = (rz + 2) / 3;
+    const px = CX + rx * R;
+    const py = CY + y3 * R;
+    ctx.beginPath();
+    ctx.arc(px, py, p.size * scale, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${224 + rz * 20},${40 + energy * 90},${55},${0.25 + scale * 0.55})`;
+    ctx.fill();
+  });
+
+  // audio waveform circle
+  ctx.beginPath();
+  const segs = 90;
+  for (let i = 0; i <= segs; i++) {
+    const a = (i / segs) * Math.PI * 2;
+    const wob = Math.sin(a * 7 + t * 6) * (2 + energy * 16) + Math.sin(a * 13 - t * 9) * (1 + energy * 9);
+    const rr = R * 1.05 + wob;
+    const x = CX + Math.cos(a) * rr;
+    const y = CY + Math.sin(a) * rr;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = `rgba(255,92,77,${0.4 + energy * 0.5})`;
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+/* ================= STATE HELPERS ================= */
+const $ = id => document.getElementById(id);
+function setState(txt) { $('agentState').textContent = txt; }
+function setDot(id, on) { $(id).classList.toggle('on', on); }
+function addMsg(who, text) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + (who === 'boss' ? 'user' : 'friday');
+  d.innerHTML = `<span class="who">${who === 'boss' ? 'BOSS' : 'FRIDAY'}</span>` + text.replace(/</g, '&lt;');
+  $('transcript').appendChild(d);
+  $('transcript').scrollTop = $('transcript').scrollHeight;
+}
+
+function animateBars(el, level) {
+  [...el.children].forEach(s => {
+    s.style.height = Math.max(8, Math.min(100, level * (40 + Math.random() * 90))) + '%';
+  });
+}
+function resetBars(el) { [...el.children].forEach(s => s.style.height = '20%'); }
+
+/* fake neural load drift */
+setInterval(() => {
+  $('loadBar').style.width = (6 + Math.random() * 14 + energy * 60) + '%';
+}, 1400);
+
+/* ================= LIVEKIT ================= */
+let room = null;
+let micEnabled = false;
+let sessionStart = null;
+let micAnalyser = null, agentAnalyser = null;
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+setInterval(() => {
+  if (!sessionStart) return;
+  const s = Math.floor((Date.now() - sessionStart) / 1000);
+  $('sessionTime').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+}, 1000);
+
+// meter loop
+function meterLoop() {
+  if (micAnalyser && micEnabled) {
+    const a = new Uint8Array(micAnalyser.frequencyBinCount);
+    micAnalyser.getByteFrequencyData(a);
+    const lvl = a.reduce((x, y) => x + y, 0) / a.length / 255;
+    animateBars($('micBars'), lvl * 2.2);
+    $('micBars').classList.toggle('active', lvl > 0.02);
+  }
+  if (agentAnalyser) {
+    const a = new Uint8Array(agentAnalyser.frequencyBinCount);
+    agentAnalyser.getByteFrequencyData(a);
+    const lvl = a.reduce((x, y) => x + y, 0) / a.length / 255;
+    animateBars($('voiceBars'), lvl * 2.2);
+    $('voiceBars').classList.toggle('active', lvl > 0.02);
+    if (lvl > 0.03) { targetEnergy = Math.min(1, lvl * 3); setDot('dotVoice', true); $('voiceState').textContent = 'SPEAKING'; setState('SPEAKING'); }
+    else { targetEnergy = micEnabled ? 0.15 : 0.05; if ($('voiceState').textContent === 'SPEAKING') { $('voiceState').textContent = 'IDLE'; setDot('dotVoice', false); setState('LISTENING'); } }
+  }
+  requestAnimationFrame(meterLoop);
+}
+meterLoop();
+
+async function connect() {
+  const url = $('lkUrl').value.trim();
+  const token = $('lkToken').value.trim();
+  const err = $('connErr');
+  err.style.display = 'none';
+  if (!url || !token) { err.textContent = 'URL aur token dono chahiye.'; err.style.display = 'block'; return; }
+
+  $('connectBtn').textContent = 'Linking...';
+  try {
+    room = new LivekitClient.Room({ adaptiveStream: true });
+
+    room.on(LivekitClient.RoomEvent.ParticipantConnected, p => {
+      if (p.isAgent || p.identity.includes('agent')) {
+        setDot('dotAgent', true); $('agentPresence').textContent = 'ONLINE';
+        addMsg('friday', 'Agent uplink confirmed. FRIDAY standing by.');
+        setState('LISTENING');
+      }
+    });
+
+    room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+      if (track.kind === 'audio') {
+        const el = track.attach();
+        document.body.appendChild(el);
+        // analyser on agent audio
+        try {
+          const src = audioCtx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
+          agentAnalyser = audioCtx.createAnalyser();
+          agentAnalyser.fftSize = 64;
+          src.connect(agentAnalyser);
+        } catch (e) { console.warn(e); }
+        setDot('dotAgent', true); $('agentPresence').textContent = 'ONLINE';
+      }
+    });
+
+    // transcriptions (agent speech-to-text of both sides)
+    room.on(LivekitClient.RoomEvent.TranscriptionReceived, (segments, participant) => {
+      segments.forEach(seg => {
+        if (!seg.final) return;
+        const isAgent = participant && (participant.isAgent || participant.identity.includes('agent'));
+        addMsg(isAgent ? 'friday' : 'boss', seg.text);
+      });
+    });
+
+    room.on(LivekitClient.RoomEvent.DataReceived, (payload) => {
+      try {
+        const txt = new TextDecoder().decode(payload);
+        const j = JSON.parse(txt);
+        if (j.message) addMsg('friday', j.message);
+      } catch (e) {}
+    });
+
+    room.on(LivekitClient.RoomEvent.Disconnected, () => {
+      setDot('dotConn', false); setDot('dotAgent', false); setDot('dotMic', false);
+      $('connState').textContent = 'OFFLINE'; $('agentPresence').textContent = 'NOT DETECTED';
+      setState('STANDBY'); sessionStart = null;
+      ['micBtn', 'textInput', 'sendBtn', 'disconnectBtn'].forEach(i => $(i).disabled = true);
+      $('connectModal').classList.remove('hidden');
+    });
+
+    await room.connect(url, token);
+    await audioCtx.resume();
+
+    setDot('dotConn', true);
+    $('connState').textContent = 'SECURE';
+    $('connectModal').classList.add('hidden');
+    sessionStart = Date.now();
+    setState('LISTENING');
+    targetEnergy = 0.1;
+    ['micBtn', 'textInput', 'sendBtn', 'disconnectBtn'].forEach(i => $(i).disabled = false);
+    addMsg('friday', 'Uplink secure. Say something or type below, boss.');
+
+    // check existing agents in room
+    room.remoteParticipants.forEach(p => {
+      if (p.isAgent || p.identity.includes('agent')) { setDot('dotAgent', true); $('agentPresence').textContent = 'ONLINE'; }
+    });
+
+  } catch (e) {
+    console.error(e);
+    err.textContent = 'Connection failed: ' + e.message;
+    err.style.display = 'block';
+  }
+  $('connectBtn').textContent = 'Establish Uplink';
+}
+
+async function toggleMic() {
+  if (!room) return;
+  micEnabled = !micEnabled;
+  await room.localParticipant.setMicrophoneEnabled(micEnabled);
+  $('micBtn').textContent = micEnabled ? 'Mic: Live' : 'Mic: Off';
+  $('micBtn').classList.toggle('armed', micEnabled);
+  setDot('dotMic', micEnabled);
+  $('micState').textContent = micEnabled ? 'LIVE' : 'MUTED';
+  if (!micEnabled) resetBars($('micBars'));
+
+  if (micEnabled && !micAnalyser) {
+    const pub = [...room.localParticipant.audioTrackPublications.values()][0];
+    if (pub && pub.track) {
+      try {
+        const src = audioCtx.createMediaStreamSource(new MediaStream([pub.track.mediaStreamTrack]));
+        micAnalyser = audioCtx.createAnalyser();
+        micAnalyser.fftSize = 64;
+        src.connect(micAnalyser);
+      } catch (e) { console.warn(e); }
+    }
+  }
+}
+
+async function sendText() {
+  const v = $('textInput').value.trim();
+  if (!v || !room) return;
+  $('textInput').value = '';
+  addMsg('boss', v);
+  try {
+    // lk.chat topic — livekit agents text input
+    await room.localParticipant.sendText(v, { topic: 'lk.chat' });
+  } catch (e) {
+    try {
+      await room.localParticipant.publishData(new TextEncoder().encode(JSON.stringify({ message: v })), { topic: 'lk.chat' });
+    } catch (e2) { addMsg('friday', 'Text channel unavailable — use voice, boss.'); }
+  }
+}
+
+$('connectBtn').onclick = connect;
+$('micBtn').onclick = toggleMic;
+$('sendBtn').onclick = sendText;
+$('textInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
+$('disconnectBtn').onclick = () => room && room.disconnect();
+</script>
+</body>
+</html>
