@@ -5,6 +5,7 @@
 Tony Stark-inspired voice AI assistant powered by LiveKit, Deepgram, Gemini, and FastMCP. Includes a custom Ultron-style command dashboard.
 
 ## Architecture
+
 - **STT:** Deepgram (real-time speech recognition)
 - **LLM:** Google Gemini 2.0 Flash
 - **TTS:** Deepgram
@@ -12,43 +13,56 @@ Tony Stark-inspired voice AI assistant powered by LiveKit, Deepgram, Gemini, and
 - **Voice Pipeline:** LiveKit Agents
 - **Dashboard:** Custom HTML/Canvas Ultron-style command interface
 
-## Project Structure ## Setup
+## Project Structure
+
+friday-assistant/
+- src/agent_friday_new.py (Voice agent entrypoint)
+- src/server.py (MCP tool server)
+- src/gen_token.py (LiveKit token generator)
+- friday-dashboard.html (Command dashboard UI)
+- .env.example
+- pyproject.toml
+- README.md
+
+## Setup
 
 ### 1. Install dependencies
-```bash
-pip install uv
-uv sync
-uv add livekit-api
-```
+
+    pip install uv
+    uv sync
+    uv add livekit-api
 
 ### 2. Configure environment
-```bash
-cp .env.example .env
-# Fill in your API keys
-```
+
+    cp .env.example .env
+
+Fill in your API keys after copying.
 
 ### 3. Run the agent
-```bash
-# Terminal 1 - MCP Tool Server
-uv run python src/server.py
 
-# Terminal 2 - Voice Agent
-uv run python src/agent_friday_new.py
-```
+    # Terminal 1 - MCP Tool Server
+    uv run python src/server.py
+
+    # Terminal 2 - Voice Agent
+    uv run python src/agent_friday_new.py
 
 ### 4. Launch the dashboard
-```bash
-uv run python src/gen_token.py
-```
-Open `friday-dashboard.html` in your browser, paste the LiveKit URL and generated token, and click **Establish Uplink**.
+
+    uv run python src/gen_token.py
+
+Open friday-dashboard.html in your browser, paste the LiveKit URL and generated token, and click Establish Uplink.
 
 ## Required API Keys
-- `LIVEKIT_URL` + `LIVEKIT_API_KEY` + `LIVEKIT_API_SECRET` — livekit.io
-- `GOOGLE_API_KEY` — aistudio.google.com
-- `DEEPGRAM_API_KEY` — console.deepgram.com
-- `GROQ_API_KEY` — console.groq.com
+
+| Key | Source |
+|---|---|
+| LIVEKIT_URL + LIVEKIT_API_KEY + LIVEKIT_API_SECRET | livekit.io |
+| GOOGLE_API_KEY | aistudio.google.com |
+| DEEPGRAM_API_KEY | console.deepgram.com |
+| GROQ_API_KEY | console.groq.com |
 
 ## Dashboard Features
+
 - Real-time audio-reactive core animation (particle sphere + rotating rings)
 - Live mic/voice level meters
 - Live comms transcript (voice + text)
@@ -56,4 +70,5 @@ Open `friday-dashboard.html` in your browser, paste the LiveKit URL and generate
 - Text chat fallback alongside voice
 
 ## License
+
 MIT — see [LICENSE](LICENSE)
