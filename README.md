@@ -111,3 +111,7 @@ MIT — see [LICENSE](LICENSE)
 ---
 
 Inspired by Tony Stark's F.R.I.D.A.Y. This is an independent fan project, not affiliated with Marvel Entertainment or The Walt Disney Company.
+
+---
+
+**Made by Soham Kumar**
