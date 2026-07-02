@@ -115,3 +115,5 @@ Inspired by Tony Stark's F.R.I.D.A.Y. This is an independent fan project, not af
 ---
 
 **Made by Soham Kumar**
+
+📸 Instagram: [@sohamkumar_05](https://instagram.com/sohamkumar_05)
