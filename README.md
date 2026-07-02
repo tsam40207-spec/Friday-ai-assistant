@@ -48,6 +48,9 @@ Open `friday-dashboard.html` in your browser, paste the LiveKit URL and generate
 - `DEEPGRAM_API_KEY` — console.deepgram.com
 - `GROQ_API_KEY` — console.groq.com
 
+## Screenshot
+![FRIDAY Dashboard](dashboard-screenshot.png)
+
 ## Dashboard Features
 - Real-time audio-reactive core animation (particle sphere + rotating rings)
 - Live mic/voice level meters
@@ -57,3 +60,4 @@ Open `friday-dashboard.html` in your browser, paste the LiveKit URL and generate
 
 ## Connect
 Run `uv run python gen_token.py`, then open the dashboard and paste in your credentials — or use LiveKit Playground directly.
+
